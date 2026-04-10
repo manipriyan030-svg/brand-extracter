@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-core";
 
 export const maxDuration = 60;
 
@@ -12,44 +12,34 @@ export async function POST(req: NextRequest) {
 
   let browser;
   try {
-    // Configure Puppeteer for Vercel deployment
     const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
     const browserlessToken = process.env.BROWSERLESS_TOKEN;
 
-    let launchOptions;
-
     if (browserlessToken) {
-      // Use Browserless.io for hosted Chrome (recommended for Vercel)
-      console.log('🌐 Connecting to Browserless.io...');
-      const browserWSEndpoint = `wss://chrome.browserless.io?token=${browserlessToken}`;
+      // Use Browserless.io for hosted Chrome
       browser = await puppeteer.connect({
-        browserWSEndpoint,
+        browserWSEndpoint: `wss://chrome.browserless.io?token=${browserlessToken}`,
+      });
+    } else if (isVercel) {
+      // Use @sparticuz/chromium on Vercel serverless
+      const chromium = (await import("@sparticuz/chromium")).default;
+      browser = await puppeteer.launch({
+        args: chromium.args,
+        executablePath: await chromium.executablePath(),
+        headless: true,
       });
     } else {
-      // Local Chrome installation
-      const launchOptions: any = {
+      // Local development — use locally installed Chrome
+      browser = await puppeteer.launch({
         headless: true,
+        channel: "chrome",
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--single-process',
           '--disable-gpu'
-        ]
-      };
-
-      // On Vercel, try to use the installed Chrome path
-      if (isVercel) {
-        const chromePath = process.env.PUPPETEER_EXECUTABLE_PATH ||
-          './node_modules/.puppeteer_cache/chrome/mac_arm-146.0.7680.153/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
-        launchOptions.executablePath = chromePath;
-        console.log('🚀 Launching Puppeteer on Vercel with path:', chromePath);
-      }
-
-      browser = await puppeteer.launch(launchOptions);
+        ],
+      });
     }
 
     const page = await browser.newPage();
