@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "node scripts/setup-puppeteer.js && next dev",
     "build": "node scripts/setup-puppeteer.js && next build",
+    "build:vercel": "node scripts/setup-puppeteer.js && next build",
     "start": "node scripts/setup-puppeteer.js && next start",
     "lint": "eslint",
     "setup:puppeteer": "node scripts/setup-puppeteer.js"

@@ -1,0 +1,14 @@
+{
+  "buildCommand": "npm run build:vercel",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "functions": {
+    "src/app/api/extract/route.ts": {
+      "maxDuration": 60,
+      "runtime": "nodejs18.x"
+    }
+  },
+  "env": {
+    "VERCEL_ENV": "production"
+  }
+}

@@ -12,7 +12,31 @@ export async function POST(req: NextRequest) {
 
   let browser;
   try {
-    browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
+    // Configure Puppeteer for Vercel deployment
+    const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+    const launchOptions = {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process', // <- this one doesn't work in Windows
+        '--disable-gpu'
+      ]
+    };
+
+    // On Vercel, try to use the installed Chrome path
+    if (isVercel) {
+      const chromePath = process.env.PUPPETEER_EXECUTABLE_PATH ||
+        './node_modules/.puppeteer_cache/chrome/mac_arm-146.0.7680.153/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+      launchOptions.executablePath = chromePath;
+      console.log('🚀 Launching Puppeteer on Vercel with path:', chromePath);
+    }
+
+    browser = await puppeteer.launch(launchOptions);
     const page = await browser.newPage();
     // Force a desktop viewport so Tailwind `md:` / `lg:` styles apply.
     // Many sites use `text-white md:text-black` on the brand wordmark — at a
@@ -704,13 +728,18 @@ export async function POST(req: NextRequest) {
     const message = err instanceof Error ? err.message : "Unknown error";
     
     // Check if this is a Chrome not found error
-    if (message.includes("Could not find Chrome") || message.includes("Executable doesn't exist")) {
-      console.error("❌ Chrome not found. Run: npm run setup:puppeteer");
+    if (message.includes("Could not find Chrome") || message.includes("Executable doesn't exist") || message.includes("ENOENT")) {
+      const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+      console.error("❌ Chrome not found.", isVercel ? "On Vercel deployment." : "Run: npm run setup:puppeteer");
+
       return NextResponse.json(
         {
-          error: "Chrome not installed. Running setup...",
+          error: "Chrome not installed",
           details: message,
-          fix: "Run: npm run setup:puppeteer",
+          fix: isVercel
+            ? "Chrome should be installed during build. Check Vercel logs."
+            : "Run: npm run setup:puppeteer",
+          environment: isVercel ? "vercel" : "local"
         },
         { status: 503 }
       );
