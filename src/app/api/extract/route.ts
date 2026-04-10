@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       });
     } else {
       // Local Chrome installation
-      launchOptions = {
+      const launchOptions: any = {
         headless: true,
         args: [
           '--no-sandbox',
@@ -51,9 +51,7 @@ export async function POST(req: NextRequest) {
 
       browser = await puppeteer.launch(launchOptions);
     }
-    }
 
-    browser = await puppeteer.launch(launchOptions);
     const page = await browser.newPage();
     // Force a desktop viewport so Tailwind `md:` / `lg:` styles apply.
     // Many sites use `text-white md:text-black` on the brand wordmark — at a
