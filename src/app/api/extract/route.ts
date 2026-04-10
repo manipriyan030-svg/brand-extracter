@@ -22,10 +22,12 @@ export async function POST(req: NextRequest) {
       });
     } else if (isVercel) {
       // Use @sparticuz/chromium on Vercel serverless
-      const chromium = (await import("@sparticuz/chromium")).default;
+      const chromium = (await import("@sparticuz/chromium-min")).default;
       browser = await puppeteer.launch({
         args: chromium.args,
-        executablePath: await chromium.executablePath(),
+        executablePath: await chromium.executablePath(
+          "https://github.com/nicholasgasior/headless-chromium-for-aws-lambda/releases/download/v143.0.7735.174/chromium-v143.0.7735.174-pack.tar"
+        ),
         headless: true,
       });
     } else {
