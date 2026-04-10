@@ -700,7 +700,23 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: unknown) {
     if (browser) await browser.close();
+    
     const message = err instanceof Error ? err.message : "Unknown error";
+    
+    // Check if this is a Chrome not found error
+    if (message.includes("Could not find Chrome") || message.includes("Executable doesn't exist")) {
+      console.error("❌ Chrome not found. Run: npm run setup:puppeteer");
+      return NextResponse.json(
+        {
+          error: "Chrome not installed. Running setup...",
+          details: message,
+          fix: "Run: npm run setup:puppeteer",
+        },
+        { status: 503 }
+      );
+    }
+    
+    console.error("❌ Extraction error:", message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node scripts/setup-puppeteer.js && next dev",
+    "build": "node scripts/setup-puppeteer.js && next build",
+    "start": "node scripts/setup-puppeteer.js && next start",
     "lint": "eslint",
-    "postinstall": "npx puppeteer browsers install chrome"
+    "setup:puppeteer": "node scripts/setup-puppeteer.js"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
