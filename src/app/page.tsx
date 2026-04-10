@@ -129,33 +129,53 @@ function isLight(hex: string): boolean {
   return (r * 299 + g * 587 + b * 114) / 1000 > 155;
 }
 
-function ColorRow({ color }: { color: string }) {
+function CopyCell({ value, children, className }: { value: string; children: React.ReactNode; className?: string }) {
   const [copied, setCopied] = useState(false);
-  const name = colorName(color);
   return (
-    <tr
-      className="result-card border-t border-black/[0.06] dark:border-white/[0.06] hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors cursor-pointer"
-      onClick={() => {
-        navigator.clipboard.writeText(color);
+    <td
+      className={`py-3 sm:py-4 px-3 sm:px-5 cursor-pointer hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors ${className || ""}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(value);
         setCopied(true);
         setTimeout(() => setCopied(false), 1200);
       }}
     >
-      <td className="py-3 sm:py-4 px-3 sm:px-5">
+      {copied ? <span className="text-xs sm:text-sm font-mono font-semibold text-green-600 dark:text-green-400">Copied!</span> : children}
+    </td>
+  );
+}
+
+function ColorRow({ color }: { color: string }) {
+  const name = colorName(color);
+  const rgb = hexToRgbStr(color);
+  const hsl = hexToHsl(color);
+  const cmyk = hexToCmyk(color);
+  return (
+    <tr className="result-card border-t border-black/[0.06] dark:border-white/[0.06] transition-colors">
+      <CopyCell value={color.toUpperCase()}>
         <div className="flex items-center gap-2 sm:gap-3">
           <div
             className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg border border-black/10 dark:border-white/10 flex-shrink-0"
             style={{ backgroundColor: color }}
           />
           <span className="font-mono font-bold text-xs sm:text-sm text-black dark:text-white">
-            {copied ? "Copied!" : color.toUpperCase()}
+            {color.toUpperCase()}
           </span>
         </div>
-      </td>
-      <td className="py-3 sm:py-4 px-3 sm:px-5 text-xs sm:text-sm text-black/60 dark:text-white/60 font-medium">{name}</td>
-      <td className="py-3 sm:py-4 px-3 sm:px-5 text-xs sm:text-sm font-mono text-black/60 dark:text-white/60">{hexToRgbStr(color)}</td>
-      <td className="py-3 sm:py-4 px-3 sm:px-5 text-xs sm:text-sm font-mono text-black/60 dark:text-white/60 hidden md:table-cell">{hexToHsl(color)}</td>
-      <td className="py-3 sm:py-4 px-3 sm:px-5 text-xs sm:text-sm font-mono text-black/60 dark:text-white/60 hidden lg:table-cell">{hexToCmyk(color)}</td>
+      </CopyCell>
+      <CopyCell value={name} className="text-xs sm:text-sm text-black/60 dark:text-white/60 font-medium">
+        <span>{name}</span>
+      </CopyCell>
+      <CopyCell value={rgb} className="text-xs sm:text-sm font-mono text-black/60 dark:text-white/60">
+        <span>{rgb}</span>
+      </CopyCell>
+      <CopyCell value={hsl} className="text-xs sm:text-sm font-mono text-black/60 dark:text-white/60 hidden! md:table-cell!">
+        <span>{hsl}</span>
+      </CopyCell>
+      <CopyCell value={cmyk} className="text-xs sm:text-sm font-mono text-black/60 dark:text-white/60 hidden! lg:table-cell!">
+        <span>{cmyk}</span>
+      </CopyCell>
     </tr>
   );
 }
@@ -335,7 +355,7 @@ export default function Home() {
   const heroPrimary = data?.palette.primary[0] || data?.palette.all[0] || "#111111";
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black overflow-x-hidden relative flex flex-col">
+    <div className="min-h-screen bg-white dark:bg-black relative flex flex-col">
       {/* === ANIMATED BACKGROUND BLOBS === */}
       {!data && (
         <div ref={blobsRef} className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -479,7 +499,7 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6 sm:gap-8">
 
             {/* ============ SIDEBAR (sticky brand card) ============ */}
-            <aside className="brand-sidebar space-y-6">
+            <aside className="brand-sidebar space-y-6 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:scrollbar-hide">
               <div className="rounded-3xl border border-black/10 dark:border-white/10 overflow-hidden bg-white dark:bg-white/[0.02]">
                 {/* Banner — uses signature color */}
                 <div
