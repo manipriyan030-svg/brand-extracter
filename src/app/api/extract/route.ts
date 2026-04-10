@@ -737,7 +737,7 @@ export async function POST(req: NextRequest) {
         candidates: brandCandidates,
       },
     });
-  } catch (err: unknown) {
+  } catch (err) {
     if (browser) await browser.close();
     
     const message = err instanceof Error ? err.message : "Unknown error";
