@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       browser = await puppeteer.launch({
         args: chromium.args,
         executablePath: await chromium.executablePath(
-          "https://github.com/nicholasgasior/headless-chromium-for-aws-lambda/releases/download/v143.0.7735.174/chromium-v143.0.7735.174-pack.tar"
+          "https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar"
         ),
         headless: true,
       });
