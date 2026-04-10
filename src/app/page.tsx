@@ -624,12 +624,35 @@ export default function Home() {
                         key={i}
                         className="result-card group rounded-3xl overflow-hidden border border-black/[0.04] dark:border-white/[0.04] hover:border-black/20 dark:hover:border-white/20 hover:-translate-y-1 hover:shadow-2xl transition-all duration-300"
                       >
-                        <div className="flex items-center justify-center p-8 sm:p-16 min-h-[180px] sm:min-h-[280px] bg-white">
+                        <div className={`flex items-center justify-center p-8 sm:p-16 min-h-[180px] sm:min-h-[280px] ${item.dark ? "bg-[#1a1a1a]" : "bg-white"}`}>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={item.src}
                             alt={item.label}
                             className="max-h-32 max-w-[280px] object-contain transition-transform duration-500 group-hover:scale-110"
+                            onLoad={(e) => {
+                              const img = e.currentTarget;
+                              const canvas = document.createElement("canvas");
+                              const size = 32;
+                              canvas.width = size;
+                              canvas.height = size;
+                              const ctx = canvas.getContext("2d");
+                              if (!ctx) return;
+                              ctx.drawImage(img, 0, 0, size, size);
+                              const data = ctx.getImageData(0, 0, size, size).data;
+                              let lightPixels = 0;
+                              let totalPixels = 0;
+                              for (let p = 0; p < data.length; p += 4) {
+                                if (data[p + 3] < 30) continue;
+                                totalPixels++;
+                                const brightness = (data[p] * 299 + data[p + 1] * 587 + data[p + 2] * 114) / 1000;
+                                if (brightness > 220) lightPixels++;
+                              }
+                              if (totalPixels > 0 && lightPixels / totalPixels > 0.6) {
+                                const container = img.parentElement;
+                                if (container) container.style.backgroundColor = "#1a1a1a";
+                              }
+                            }}
                             onError={(e) => {
                               const card = e.currentTarget.closest(".result-card");
                               if (card) (card as HTMLElement).style.display = "none";
