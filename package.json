@@ -10,6 +10,9 @@
     "lint": "eslint",
     "setup:puppeteer": "node scripts/setup-puppeteer.js"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "@gsap/react": "^2.1.2",
     "cheerio": "^1.2.0",

@@ -4,8 +4,7 @@
   "framework": "nextjs",
   "functions": {
     "src/app/api/extract/route.ts": {
-      "maxDuration": 60,
-      "runtime": "nodejs18.x"
+      "maxDuration": 60
     }
   },
   "env": {
