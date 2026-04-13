@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Brand Extractor — Extract Any Brand's Design DNA",
-  description: "Enter a website URL to instantly generate a brand guide with colors, typography, logos, and more.",
+  title: "Freshboost Brand Extractor — Extract Any Brand's Design DNA",
+  description: "Drop a URL and instantly extract logos, colors, typography, and brand identity from any website. Built by Freshboost.",
 };
 
 export default function RootLayout({

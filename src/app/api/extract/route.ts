@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import puppeteer from "puppeteer-core";
+import { supabase } from "@/lib/supabase";
 
 export const maxDuration = 60;
 
@@ -87,49 +88,61 @@ export async function POST(req: NextRequest) {
       //   2. Computed font-family stacks from elements, with aggressive filtering
       //      to drop emoji/symbol/system fallback fonts that browsers append.
 
-      const SYSTEM_FONT_BLACKLIST = new Set([
+      const GENERIC_FONTS = new Set([
         "serif", "sans-serif", "monospace", "cursive", "fantasy",
         "system-ui", "ui-sans-serif", "ui-serif", "ui-monospace", "ui-rounded",
         "inherit", "initial", "unset", "revert", "math", "emoji",
-        "-apple-system", "blinkmacsystemfont", "webkit-pictograph",
-        "helvetica", "helvetica neue", "arial", "roboto",
-        "apple color emoji", "segoe ui emoji", "segoe ui symbol",
-        "noto color emoji", "noto sans symbols", "noto sans symbols 2",
-        "android emoji", "emojione color", "twemoji mozilla",
-        "segoe ui", "segoe ui historic",
+        "-apple-system", "blinkmacsystemfont",
       ]);
-      const isSystemOrEmojiFont = (name: string): boolean => {
+      // Icon / utility fonts that should never appear as brand typography
+      const ICON_FONTS = new Set([
+        "webflow-icons", "fontawesome", "font awesome", "fa", "glyphicons",
+        "material icons", "material-icons", "ionicons", "icomoon",
+        "remixicon", "feather", "bootstrap-icons", "octicons", "heroicons",
+        "phosphor", "tabler-icons", "boxicons", "linearicons",
+        "icon-font", "icon_font", "icons",
+      ]);
+      const isIconFont = (name: string): boolean => {
         const lower = name.toLowerCase().trim();
-        if (!lower) return true;
-        if (SYSTEM_FONT_BLACKLIST.has(lower)) return true;
-        if (/emoji|symbol|wingdings|webdings/i.test(lower)) return true;
-        if (/^-?(webkit|moz|ms|apple)-/.test(lower)) return true;
+        if (ICON_FONTS.has(lower)) return true;
+        if (/icon|glyph|awesome|symbol/i.test(lower) && !/iconic/i.test(lower)) return true;
         return false;
       };
 
-      // 1. Read @font-face rules — the source of truth for what's loaded.
-      // Family name is preserved EXACTLY as declared in the CSS — no cleaning,
-      // no renaming. Mangled Next.js names stay mangled.
+      const isGenericFont = (name: string): boolean => {
+        const lower = name.toLowerCase().trim();
+        if (!lower) return true;
+        if (GENERIC_FONTS.has(lower)) return true;
+        if (/emoji|symbol|wingdings|webdings/i.test(lower)) return true;
+        if (/^-?(webkit|moz|ms|apple)-/.test(lower)) return true;
+        if (isIconFont(lower)) return true;
+        return false;
+      };
+
+      // Mangled names: Next.js generates "__FontName_hash" or "__fN_hash"
+      const isMangledName = (name: string): boolean => {
+        return /^__/.test(name) || /^[0-9a-f]{6,}$/i.test(name);
+      };
+
+      // 1. Collect real font names from CSS font-family declarations in stylesheets
+      //    (not computed styles — those can return fallback fonts)
       type WebFont = { family: string; src: string };
       const webFonts: WebFont[] = [];
       const seenFamilies = new Set<string>();
 
+      // Scan all stylesheets for font-family values used in regular rules
+      // This gets the EXACT names the website author wrote in CSS
+      const cssUsedFonts = new Set<string>();
       for (const sheet of Array.from(document.styleSheets)) {
         let rules: CSSRuleList | null = null;
-        try {
-          rules = sheet.cssRules;
-        } catch {
-          // Cross-origin stylesheet — can't read rules due to CORS
-          continue;
-        }
+        try { rules = sheet.cssRules; } catch { continue; }
         if (!rules) continue;
         for (const rule of Array.from(rules)) {
+          // @font-face rules — source of truth for loaded fonts
           if (rule.constructor.name === "CSSFontFaceRule" || (rule as CSSRule).type === 5) {
             const ffr = rule as CSSFontFaceRule;
             const family = ffr.style.getPropertyValue("font-family").replace(/['"]/g, "").trim();
-            if (!family || isSystemOrEmojiFont(family)) continue;
-            if (seenFamilies.has(family.toLowerCase())) continue;
-            seenFamilies.add(family.toLowerCase());
+            if (!family || isGenericFont(family)) continue;
 
             const srcRaw = ffr.style.getPropertyValue("src") || "";
             const urlMatch = srcRaw.match(/url\(([^)]+)\)/);
@@ -139,27 +152,173 @@ export async function POST(req: NextRequest) {
               try { absSrc = new URL(u, sheet.href || window.location.href).href; }
               catch { absSrc = u; }
             }
-            webFonts.push({ family, src: absSrc });
+
+            if (!isMangledName(family)) {
+              if (!seenFamilies.has(family.toLowerCase())) {
+                seenFamilies.add(family.toLowerCase());
+                webFonts.push({ family, src: absSrc });
+              }
+            }
+            // Track mangled names for later mapping
+            continue;
+          }
+          // Regular style rules — read font-family property for exact CSS names
+          if ((rule as CSSStyleRule).style) {
+            const ff = (rule as CSSStyleRule).style.getPropertyValue("font-family");
+            if (!ff) continue;
+            for (const part of ff.split(",")) {
+              const name = part.trim().replace(/['"]/g, "");
+              if (name && !isGenericFont(name) && !isMangledName(name)) {
+                cssUsedFonts.add(name);
+              }
+            }
           }
         }
       }
 
-      // 2. Add fonts from computed styles — exact names, only the FIRST
-      // non-system font in each stack. No transformation.
-      const fontSet = new Set<string>();
-      webFonts.forEach((wf) => fontSet.add(wf.family));
+      // 2. Check document.fonts — exact family names of fonts the browser loaded
+      const loadedFontNames = new Set<string>();
+      if (document.fonts) {
+        document.fonts.forEach((f: FontFace) => {
+          const raw = f.family.replace(/['"]/g, "").trim();
+          if (raw && !isGenericFont(raw) && !isMangledName(raw)) {
+            loadedFontNames.add(raw);
+          }
+        });
+      }
 
+      // 3. Google Fonts <link> and @import — exact font names from the URL
+      const googleFontNames = new Set<string>();
+      const parseFontsFromUrl = (href: string) => {
+        const matches = href.matchAll(/family=([^&:]+)/g);
+        for (const m of matches) {
+          const name = decodeURIComponent(m[1]).replace(/\+/g, " ").trim();
+          if (name) googleFontNames.add(name);
+        }
+      };
+      document.querySelectorAll('link[href*="fonts.googleapis.com"]').forEach((link) => {
+        parseFontsFromUrl(link.getAttribute("href") || "");
+      });
+      for (const sheet of Array.from(document.styleSheets)) {
+        try {
+          const rules = sheet.cssRules;
+          if (!rules) continue;
+          for (const rule of Array.from(rules)) {
+            if ((rule as CSSRule).type === 3) {
+              const href = (rule as CSSImportRule).href || "";
+              if (href.includes("fonts.googleapis.com")) parseFontsFromUrl(href);
+            }
+          }
+        } catch { continue; }
+      }
+
+      // 4. Resolve mangled Next.js font names via two strategies:
+      //    A) CSS custom properties: --font-<real-name>: "__mangledFont_hash"
+      //    B) className rules: .__className_hash { font-family: "__nameFont_hash" }
+      //       where the mangled name contains camelCase hint e.g. "sFProFont" → "SF Pro"
+      const mangledToReal = new Map<string, string>();
+
+      // Helper: parse a camelCase mangled prefix like "sFPro" or "gI" into "SF Pro" or "GI"
+      // Next.js pattern: __<camelCaseAbbrev>Font_<hash>
+      const parseMangledName = (mangled: string): string => {
+        // Extract the part between __ and Font_
+        const match = mangled.match(/^__(.+?)Font_/);
+        if (!match) return "";
+        const abbr = match[1]; // e.g. "sFPro", "gI", "hellix"
+        // Next.js camelCase convention: first word is lowercased initials,
+        // subsequent words are title-cased. Split on transition from lowercase to uppercase.
+        // "sFPro" → ["sF", "Pro"] → "SF Pro"
+        // "gI" → ["gI"] → "GI"  (Glacial Indifference abbrev)
+        // "hellix" → ["hellix"] → "Hellix"
+        const parts = abbr.split(/(?<=[a-z])(?=[A-Z])/);
+        return parts.map(w => w.toUpperCase() === w ? w : w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+      };
+
+      for (const sheet of Array.from(document.styleSheets)) {
+        let rules: CSSRuleList | null = null;
+        try { rules = sheet.cssRules; } catch { continue; }
+        if (!rules) continue;
+        for (const rule of Array.from(rules)) {
+          if ((rule as CSSStyleRule).style) {
+            const style = (rule as CSSStyleRule).style;
+            const selector = (rule as CSSStyleRule).selectorText || "";
+
+            // Strategy A: --font-* CSS custom properties (most reliable)
+            for (let i = 0; i < style.length; i++) {
+              const prop = style[i];
+              if (prop.startsWith("--font-")) {
+                const value = style.getPropertyValue(prop);
+                if (value.includes("__")) {
+                  const realName = prop
+                    .replace("--font-", "")
+                    .split("-")
+                    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                    .join(" ");
+                  for (const part of value.split(",")) {
+                    const mangled = part.trim().replace(/['"]/g, "");
+                    if (mangled.startsWith("__") && !mangled.includes("Fallback")) {
+                      mangledToReal.set(mangled, realName);
+                    }
+                  }
+                }
+              }
+            }
+
+            // Strategy B: .__className_hash rules — parse the mangled font-family name
+            if (selector.includes("__className_")) {
+              const ff = style.getPropertyValue("font-family");
+              if (ff) {
+                for (const part of ff.split(",")) {
+                  const mangled = part.trim().replace(/['"]/g, "");
+                  if (mangled.startsWith("__") && !mangled.includes("Fallback") && !mangledToReal.has(mangled)) {
+                    const parsed = parseMangledName(mangled);
+                    if (parsed) mangledToReal.set(mangled, parsed);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 5. Collect fonts actually used in computed styles of TEXT elements
+      //    Skip <i>/<span> used as icon containers to avoid icon fonts polluting the list
+      const TEXT_TAGS = new Set(["P", "H1", "H2", "H3", "H4", "H5", "H6", "A", "SPAN", "DIV", "LI", "BUTTON", "LABEL", "SECTION", "ARTICLE", "HEADER", "FOOTER", "MAIN", "NAV"]);
+      const computedFontNames = new Set<string>();
       elements.forEach((el) => {
+        if (!TEXT_TAGS.has(el.tagName)) return;
+        // Skip elements that are likely icon containers (empty or just have icon child)
+        const text = el.textContent?.trim() || "";
+        if (!text || text.length < 2) return;
         const ff = getComputedStyle(el).fontFamily;
         if (!ff) return;
         for (const part of ff.split(",")) {
-          const cleaned = part.trim().replace(/['"]/g, "");
-          if (!cleaned) continue;
-          if (isSystemOrEmojiFont(cleaned)) continue;
-          if (/^[0-9a-f]{6,}$/i.test(cleaned)) continue;
-          fontSet.add(cleaned); // exact name, mangled or not
-          break;
+          const name = part.trim().replace(/['"]/g, "");
+          if (name && !isGenericFont(name) && !isMangledName(name)) {
+            computedFontNames.add(name);
+          }
         }
+      });
+
+      // 6. Build final font list — prioritize fonts that were ACTUALLY USED in elements
+      const fontSet = new Set<string>();
+      // Google Fonts names from <link> tags are exact and authoritative
+      googleFontNames.forEach((f) => fontSet.add(f));
+      // Resolved mangled Next.js font names (CSS custom props are the most reliable mapping)
+      mangledToReal.forEach((realName) => fontSet.add(realName));
+      // @font-face names only if they appear in computed styles (avoid icon/utility fonts)
+      webFonts.forEach((wf) => {
+        if (computedFontNames.has(wf.family)) fontSet.add(wf.family);
+      });
+      // Computed style names that are also declared in @font-face (verified as loaded custom fonts)
+      computedFontNames.forEach((f) => {
+        if (seenFamilies.has(f.toLowerCase()) || googleFontNames.has(f)) {
+          fontSet.add(f);
+        }
+      });
+      // document.fonts loaded names only if they appear in computed styles
+      loadedFontNames.forEach((f) => {
+        if (computedFontNames.has(f)) fontSet.add(f);
       });
 
       // Extract font sizes
@@ -530,12 +689,16 @@ export async function POST(req: NextRequest) {
       const linkColor = link ? getComputedStyle(link).color : "";
 
       // Heading styles — pick the first non-system font from the stack and
-      // return it exactly as declared. No renaming, no cleaning.
+      // return it exactly as declared.
       const pickFontForDisplay = (rawStack: string): string => {
         for (const part of rawStack.split(",")) {
           const cleaned = part.trim().replace(/['"]/g, "");
-          if (!cleaned || isSystemOrEmojiFont(cleaned)) continue;
-          if (/^[0-9a-f]{6,}$/i.test(cleaned)) continue;
+          if (!cleaned || isGenericFont(cleaned)) continue;
+          if (isMangledName(cleaned)) {
+            const real = mangledToReal.get(cleaned);
+            if (real) return real;
+            continue;
+          }
           return cleaned;
         }
         return rawStack.split(",")[0]?.trim().replace(/['"]/g, "") || "";
@@ -562,8 +725,12 @@ export async function POST(req: NextRequest) {
       // Body text
       const body = document.querySelector("body");
       const bodyStyle = body ? getComputedStyle(body) : null;
-      const bodyFonts = bodyStyle ? bodyStyle.fontFamily.split(",").map(f => f.trim().replace(/['"]/g, "")) : [];
-      const bodyFont = bodyFonts.find(f => f && !isSystemOrEmojiFont(f)) || bodyFonts[0] || "";
+      const bodyFonts = bodyStyle ? bodyStyle.fontFamily.split(",").map(f => {
+        const raw = f.trim().replace(/['"]/g, "");
+        if (isMangledName(raw)) return mangledToReal.get(raw) || "";
+        return raw;
+      }) : [];
+      const bodyFont = bodyFonts.find(f => f && !isGenericFont(f)) || "";
       const bodyColor = bodyStyle ? bodyStyle.color : "";
       const bodyBg = bodyStyle ? bodyStyle.backgroundColor : "";
 
@@ -703,7 +870,7 @@ export async function POST(req: NextRequest) {
       } catch { /* skip */ }
     }
 
-    return NextResponse.json({
+    const responseData = {
       url,
       title: brandData.title,
       description: brandData.description,
@@ -728,7 +895,29 @@ export async function POST(req: NextRequest) {
         name: brandName,
         candidates: brandCandidates,
       },
-    });
+    };
+
+    // Save to Supabase (non-blocking — don't fail the response if DB write fails)
+    supabase
+      .from("brand_extractions")
+      .insert({
+        url,
+        title: brandData.title,
+        description: brandData.description,
+        brand_name: brandName,
+        palette: responseData.palette,
+        typography: responseData.typography,
+        logos: finalLogos.slice(0, 6),
+        logo_count: Math.min(logoCount, 6),
+        favicon: faviconDataUri || brandData.favicon,
+        screenshot: `data:image/png;base64,${screenshot}`,
+      })
+      .then(({ error }) => {
+        if (error) console.error("Supabase insert error:", error.message);
+        else console.log("Saved extraction to Supabase for:", url);
+      });
+
+    return NextResponse.json(responseData);
   } catch (err) {
     if (browser) await browser.close();
     

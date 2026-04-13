@@ -334,13 +334,6 @@ export default function Home() {
     }
   }
 
-  function tryExample(example: string) {
-    setUrl(example);
-    setTimeout(() => {
-      const form = document.querySelector("form");
-      form?.requestSubmit();
-    }, 50);
-  }
 
 
   const allColors = data
@@ -359,9 +352,9 @@ export default function Home() {
       {/* === ANIMATED BACKGROUND BLOBS === */}
       {!data && (
         <div ref={blobsRef} className="fixed inset-0 pointer-events-none overflow-hidden">
-          <div className="blob absolute top-[10%] left-[15%] w-[400px] h-[400px] rounded-full bg-red-500/[0.07] dark:bg-red-500/[0.1] blur-[120px]" />
+          <div className="blob absolute top-[10%] left-[15%] w-[400px] h-[400px] rounded-full bg-orange-500/[0.08] dark:bg-orange-500/[0.12] blur-[120px]" />
           <div className="blob absolute top-[40%] right-[10%] w-[500px] h-[500px] rounded-full bg-blue-500/[0.05] dark:bg-blue-500/[0.08] blur-[120px]" />
-          <div className="blob absolute bottom-[10%] left-[40%] w-[450px] h-[450px] rounded-full bg-purple-500/[0.05] dark:bg-purple-500/[0.08] blur-[120px]" />
+          <div className="blob absolute bottom-[10%] left-[40%] w-[450px] h-[450px] rounded-full bg-orange-400/[0.05] dark:bg-orange-400/[0.08] blur-[120px]" />
         </div>
       )}
 
@@ -372,15 +365,12 @@ export default function Home() {
             onClick={() => { setData(null); setUrl(""); setError(""); }}
             className="flex items-center gap-2 sm:gap-2.5 cursor-pointer shrink-0"
           >
-            <div className="relative">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-black dark:bg-white flex items-center justify-center text-white dark:text-black text-xs font-bold">
-                C
-              </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500" />
-            </div>
-            <span className="text-sm sm:text-[15px] font-bold tracking-tight text-black dark:text-white whitespace-nowrap">
-              cyces<span className="text-red-500">.</span> brand extractor
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://cdn.prod.website-files.com/637a83b536c04ad1891311c6/66866eee08b9e45d38e08dc5_Freshboost%20Purple.png"
+              alt="Freshboost"
+              className="h-7 sm:h-8 w-auto"
+            />
           </button>
 
           {data && (
@@ -395,7 +385,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={loading || !url.trim()}
-                className="px-4 sm:px-5 py-2 text-sm rounded-full bg-black dark:bg-white text-white dark:text-black font-semibold hover:scale-105 disabled:opacity-40 disabled:hover:scale-100 transition-transform shrink-0"
+                className="px-4 sm:px-5 py-2 text-sm rounded-full bg-[#eb742e] text-white font-semibold hover:scale-105 disabled:opacity-40 disabled:hover:scale-100 transition-transform shrink-0"
               >
                 {loading ? "..." : "Extract"}
               </button>
@@ -407,19 +397,19 @@ export default function Home() {
       {/* === HERO === */}
       {!data && !loading && (
         <section ref={heroRef} className="relative max-w-5xl mx-auto px-4 sm:px-6 flex flex-col items-center justify-center flex-1 text-center py-8 sm:py-12">
-          <a href="https://cyces.co" target="_blank" rel="noopener noreferrer" className="hero-badge inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-black/15 dark:border-white/15 bg-white/60 dark:bg-white/[0.03] backdrop-blur text-black/70 dark:text-white/70 text-[11px] font-bold uppercase tracking-[0.16em] mb-6 sm:mb-8 hover:border-black/30 dark:hover:border-white/30 transition-colors">
+          <a href="https://freshboost.co" target="_blank" rel="noopener noreferrer" className="hero-badge inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-black/15 dark:border-white/15 bg-white/60 dark:bg-white/[0.03] backdrop-blur text-black/70 dark:text-white/70 text-[11px] font-bold uppercase tracking-[0.16em] mb-6 sm:mb-8 hover:border-black/30 dark:hover:border-white/30 transition-colors">
             <span className="relative flex w-2 h-2">
-              <span className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75" />
-              <span className="relative w-2 h-2 rounded-full bg-red-500" />
+              <span className="absolute inset-0 rounded-full bg-[#eb742e] animate-ping opacity-75" />
+              <span className="relative w-2 h-2 rounded-full bg-[#eb742e]" />
             </span>
-            A Cyces tool
+            A Freshboost tool
           </a>
 
           <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-[-0.04em] text-black dark:text-white leading-[0.92]">
             <span className="hero-line block">Extract any brand&apos;s</span>
             <span className="hero-line block italic font-serif font-normal mt-2">
               design <span className="relative inline-block">
-                DNA<span className="text-red-500">.</span>
+                DNA<span className="text-[#eb742e]">.</span>
               </span>
             </span>
           </h1>
@@ -431,7 +421,7 @@ export default function Home() {
 
           <form onSubmit={handleExtract} className="hero-form mt-6 sm:mt-8 relative w-full max-w-2xl mx-auto">
             <div className="group relative">
-              <div className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-red-500 via-purple-500 to-blue-500 opacity-0 group-focus-within:opacity-60 blur transition-opacity duration-500" />
+              <div className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-[#eb742e] via-orange-400 to-blue-500 opacity-0 group-focus-within:opacity-60 blur transition-opacity duration-500" />
               <div className="relative flex items-center bg-white dark:bg-black rounded-full border border-black/15 dark:border-white/15 p-1.5 sm:p-2 group-focus-within:border-transparent transition-colors">
                 <div className="pl-3 sm:pl-5 pr-1 sm:pr-2 text-black/30 dark:text-white/30">
                   <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -448,7 +438,7 @@ export default function Home() {
                 <button
                   type="submit"
                   disabled={loading || !url.trim()}
-                  className="px-4 sm:px-7 py-2.5 sm:py-3 rounded-full bg-black dark:bg-white text-white dark:text-black font-bold text-xs sm:text-sm hover:scale-105 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 transition-transform shrink-0"
+                  className="px-4 sm:px-7 py-2.5 sm:py-3 rounded-full bg-[#eb742e] text-white font-bold text-xs sm:text-sm hover:scale-105 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 transition-transform shrink-0"
                 >
                   Extract →
                 </button>
@@ -456,17 +446,7 @@ export default function Home() {
             </div>
           </form>
 
-          <div className="mt-5 sm:mt-6 flex items-center justify-center gap-2 flex-wrap">
-            {["cyces.co", "freshboost.co", "cyces.ai", "fwdslash.ai"].map((ex) => (
-              <button
-                key={ex}
-                onClick={() => tryExample(ex)}
-                className="hero-chip px-3 py-1.5 text-xs font-mono rounded-full border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] backdrop-blur text-black/60 dark:text-white/60 hover:border-black dark:hover:border-white hover:text-black dark:hover:text-white transition-colors"
-              >
-                {ex}
-              </button>
-            ))}
-          </div>
+
 
           {error && (
             <div className="mt-6 inline-block text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-2xl px-5 py-3 text-sm">
@@ -482,7 +462,7 @@ export default function Home() {
           <div className="inline-flex flex-col items-center gap-6">
             <div className="relative w-16 h-16">
               <div className="absolute inset-0 rounded-full border-2 border-black/10 dark:border-white/10" />
-              <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-red-500 animate-spin" />
+              <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-[#eb742e] animate-spin" />
               <div className="absolute inset-2 rounded-full border-2 border-transparent border-t-black dark:border-t-white animate-spin" style={{ animationDuration: "1.5s", animationDirection: "reverse" }} />
             </div>
             <div>
@@ -769,12 +749,12 @@ export default function Home() {
           <p className="text-xs sm:text-sm text-black/40 dark:text-white/40">
             Built by{" "}
             <a
-              href="https://cyces.co"
+              href="https://freshboost.co"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-semibold text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white transition-colors"
+              className="font-semibold text-[#eb742e] hover:text-[#d4651f] transition-colors"
             >
-              Cyces
+              Freshboost
             </a>
           </p>
         </div>
