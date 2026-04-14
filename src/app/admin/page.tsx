@@ -1,12 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+let _client: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient | null {
+  if (typeof window === "undefined") return null;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  if (!_client) _client = createClient(url, key);
+  return _client;
+}
 
 const ALLOWED_EMAIL = "techops@cyces.co";
 
@@ -51,7 +56,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await getSupabase()!.auth.signInWithPassword({ email, password });
     if (error) {
       setError(error.message);
     } else {
@@ -135,7 +140,7 @@ function Dashboard() {
 
   async function fetchExtractions() {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()!
       .from("brand_extractions")
       .select("*")
       .order("extracted_at", { ascending: false });
@@ -149,7 +154,7 @@ function Dashboard() {
   }
 
   async function deleteExtraction(id: string) {
-    const { error } = await supabase.from("brand_extractions").delete().eq("id", id);
+    const { error } = await getSupabase()!.from("brand_extractions").delete().eq("id", id);
     if (!error) {
       setExtractions((prev) => prev.filter((e) => e.id !== id));
       if (selected?.id === id) setSelected(null);
@@ -157,7 +162,7 @@ function Dashboard() {
   }
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    await getSupabase()?.auth.signOut();
     window.location.reload();
   }
 
@@ -415,7 +420,9 @@ export default function AdminPage() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    const client = getSupabase();
+    if (!client) { setChecking(false); return; }
+    client.auth.getSession().then(({ data }) => {
       if (data.session?.user?.email === ALLOWED_EMAIL) {
         setAuthed(true);
       }
