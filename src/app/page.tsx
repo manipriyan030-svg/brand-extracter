@@ -388,7 +388,7 @@ export default function Home() {
   const heroPrimary = data?.palette.primary[0] || data?.palette.all[0] || "#111111";
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black relative flex flex-col">
+    <div className="h-screen bg-white dark:bg-black relative flex flex-col overflow-hidden" style={data ? { height: 'auto', minHeight: '100vh', overflow: 'visible' } : {}}>
       {/* === ANIMATED BACKGROUND BLOBS === */}
       {!data && (
         <div ref={blobsRef} className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -416,23 +416,21 @@ export default function Home() {
           {data && (
             <div className="flex items-center gap-2 min-w-0">
               {/* Share button */}
-              {data.shareId && (
-                <ShareButton shareId={data.shareId} />
-              )}
+              {data.shareId && <ShareButton shareId={data.shareId} />}
               <form onSubmit={handleExtract} className="flex items-center gap-2 min-w-0">
                 <input
                   type="text"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="Enter URL..."
-                  className="min-w-0 w-full sm:w-72 px-3 sm:px-4 py-2 text-sm rounded-full bg-white dark:bg-white/5 border border-black/15 dark:border-white/15 text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 focus:outline-none focus:border-black dark:focus:border-white transition-colors"
+                  className="hidden sm:block min-w-0 w-full sm:w-72 px-3 sm:px-4 py-2 text-sm rounded-full bg-white dark:bg-white/5 border border-black/15 dark:border-white/15 text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 focus:outline-none focus:border-black dark:focus:border-white transition-colors"
                 />
                 <button
                   type="submit"
                   disabled={loading || !url.trim()}
-                  className="px-4 sm:px-5 py-2 text-sm rounded-full bg-[#eb742e] text-white font-semibold hover:scale-105 disabled:opacity-40 disabled:hover:scale-100 transition-transform shrink-0"
+                  className="px-3 sm:px-5 py-2 text-sm rounded-full bg-[#eb742e] text-white font-semibold hover:scale-105 disabled:opacity-40 disabled:hover:scale-100 transition-transform shrink-0"
                 >
-                  {loading ? "..." : "Extract"}
+                  {loading ? "..." : <><span className="hidden sm:inline">Extract</span><span className="sm:hidden">⟳ Re-extract</span></>}
                 </button>
               </form>
             </div>
@@ -442,7 +440,7 @@ export default function Home() {
 
       {/* === HERO === */}
       {!data && !loading && (
-        <section ref={heroRef} className="relative max-w-5xl mx-auto px-4 sm:px-6 flex flex-col items-center justify-center flex-1 text-center py-8 sm:py-12">
+        <section ref={heroRef} className="relative max-w-5xl mx-auto px-4 sm:px-6 flex flex-col items-center justify-center flex-1 text-center py-6 sm:py-12 min-h-0">
           <a href="https://freshboost.co" target="_blank" rel="noopener noreferrer" className="hero-badge inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-black/15 dark:border-white/15 bg-white/60 dark:bg-white/[0.03] backdrop-blur text-black/70 dark:text-white/70 text-[11px] font-bold uppercase tracking-[0.16em] mb-6 sm:mb-8 hover:border-black/30 dark:hover:border-white/30 transition-colors">
             <span className="relative flex w-2 h-2">
               <span className="absolute inset-0 rounded-full bg-[#eb742e] animate-ping opacity-75" />

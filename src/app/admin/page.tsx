@@ -273,7 +273,14 @@ function Dashboard() {
                   {filtered.map((item) => (
                     <tr
                       key={item.id}
-                      onClick={() => setSelected(item)}
+                      onClick={() => {
+                        // On mobile (no lg sidebar visible), open the share page directly
+                        if (window.innerWidth < 1024) {
+                          window.open(`/share/${item.id}`, "_blank");
+                        } else {
+                          setSelected(item);
+                        }
+                      }}
                       className={`border-b border-white/[0.04] cursor-pointer transition-colors ${
                         selected?.id === item.id ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"
                       }`}
@@ -313,17 +320,31 @@ function Dashboard() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm("Delete this extraction?")) deleteExtraction(item.id);
-                          }}
-                          className="text-white/20 hover:text-red-400 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {/* On mobile show open icon, on desktop show delete */}
+                          <a
+                            href={`/share/${item.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-white/20 hover:text-white/60 transition-colors lg:hidden"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm("Delete this extraction?")) deleteExtraction(item.id);
+                            }}
+                            className="text-white/20 hover:text-red-400 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

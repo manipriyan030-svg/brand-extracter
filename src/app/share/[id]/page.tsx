@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 
 // ── helpers (duplicated from page.tsx to keep this page self-contained) ──────
 
@@ -140,16 +139,15 @@ export default function SharePage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !key) { setNotFound(true); setLoading(false); return; }
-    const sb = createClient(url, key);
-    sb.from("brand_extractions").select("*").eq("id", id).single()
-      .then(({ data: row, error }) => {
-        if (error || !row) setNotFound(true);
-        else setData(row as Extraction);
+    if (!id) return;
+    fetch(`/api/share?id=${id}`)
+      .then(async (res) => {
+        if (!res.ok) { setNotFound(true); setLoading(false); return; }
+        const row = await res.json();
+        setData(row as Extraction);
         setLoading(false);
-      });
+      })
+      .catch(() => { setNotFound(true); setLoading(false); });
   }, [id]);
 
   function copyLink() {
