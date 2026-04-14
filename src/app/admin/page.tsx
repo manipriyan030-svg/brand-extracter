@@ -135,10 +135,137 @@ function getDomain(url: string): string {
   }
 }
 
+function DetailView({ item, onBack }: { item: Extraction; onBack: () => void }) {
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  function copyShareLink() {
+    navigator.clipboard.writeText(`${window.location.origin}/share/${item.id}`);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-[#0a0a0a] flex flex-col">
+      {/* Top bar — always visible, never scrolls away */}
+      <div className="flex-shrink-0 bg-[#0a0a0a] border-b border-white/[0.06] px-4 h-14 flex items-center justify-between gap-3" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-white/70 hover:text-white transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          <span className="text-sm font-semibold">Back</span>
+        </button>
+        <button
+          onClick={copyShareLink}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/15 text-xs font-semibold text-white/70 hover:text-white hover:border-white/30 transition-colors"
+        >
+          {linkCopied ? (
+            <>
+              <svg className="w-3.5 h-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+              Copied!
+            </>
+          ) : (
+            <>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+              Share link
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Content — this part scrolls */}
+      <div className="flex-1 overflow-y-auto">
+      <div className="p-4 space-y-5 max-w-2xl mx-auto pb-10">
+        {/* Screenshot */}
+        {item.screenshot && (
+          <div className="rounded-2xl overflow-hidden border border-white/[0.06]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={item.screenshot} alt="Screenshot" className="w-full block" />
+          </div>
+        )}
+
+        {/* Brand info */}
+        <div className="flex items-center gap-3">
+          {item.favicon ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.favicon} alt="" className="w-12 h-12 rounded-xl bg-white/10 p-1 object-contain" />
+          ) : (
+            <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-base font-bold">
+              {(item.brand_name || "?").charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div>
+            <h2 className="font-bold text-xl text-white">{item.brand_name || getDomain(item.url)}</h2>
+            <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-xs text-white/40 font-mono hover:text-white/60">
+              {getDomain(item.url)}
+            </a>
+          </div>
+        </div>
+
+        {item.description && (
+          <p className="text-sm text-white/50 leading-relaxed">{item.description}</p>
+        )}
+
+        {/* Colors */}
+        {item.palette?.primary?.length > 0 && (
+          <div>
+            <h4 className="text-[10px] uppercase tracking-wider text-white/40 font-bold mb-3">Colors</h4>
+            <div className="flex flex-wrap gap-2">
+              {[...item.palette.primary, ...(item.palette.all || [])].filter((c, i, a) => a.indexOf(c) === i).slice(0, 10).map((c, i) => (
+                <div key={i} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/5 border border-white/[0.06]">
+                  <div className="w-3.5 h-3.5 rounded-full border border-white/10 flex-shrink-0" style={{ backgroundColor: c }} />
+                  <span className="text-[11px] font-mono text-white/60">{c}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Fonts */}
+        {item.typography?.fonts?.length > 0 && (
+          <div>
+            <h4 className="text-[10px] uppercase tracking-wider text-white/40 font-bold mb-3">Typography</h4>
+            <div className="space-y-2">
+              {item.typography.fonts.map((f, i) => (
+                <div key={i} className="px-4 py-3 rounded-xl bg-white/5 border border-white/[0.06] text-sm font-medium text-white">{f}</div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Logos */}
+        {item.logos?.length > 0 && (
+          <div>
+            <h4 className="text-[10px] uppercase tracking-wider text-white/40 font-bold mb-3">Logos</h4>
+            <div className="grid grid-cols-2 gap-3">
+              {item.logos.map((logo, i) => (
+                <div key={i} className="rounded-2xl bg-white p-5 flex items-center justify-center min-h-[100px]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={logo} alt={`Logo ${i + 1}`} className="max-h-14 max-w-full object-contain" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Meta */}
+        <div className="pt-4 border-t border-white/[0.06] text-[11px] text-white/30 space-y-1">
+          <p>Extracted: {new Date(item.extracted_at).toLocaleString()}</p>
+          <p>ID: {item.id}</p>
+        </div>
+      </div>
+      </div>
+    </div>
+  );
+}
+
 function Dashboard() {
   const [extractions, setExtractions] = useState<Extraction[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Extraction | null>(null);
+  const [mobileDetail, setMobileDetail] = useState<Extraction | null>(null);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -185,6 +312,10 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
+      {/* Mobile full-screen detail view */}
+      {mobileDetail && (
+        <DetailView item={mobileDetail} onBack={() => setMobileDetail(null)} />
+      )}
       {/* Header */}
       <header className="sticky top-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/[0.06]">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
@@ -274,9 +405,8 @@ function Dashboard() {
                     <tr
                       key={item.id}
                       onClick={() => {
-                        // On mobile (no lg sidebar visible), open the share page directly
                         if (window.innerWidth < 1024) {
-                          window.open(`/share/${item.id}`, "_blank");
+                          setMobileDetail(item);
                         } else {
                           setSelected(item);
                         }
@@ -320,31 +450,17 @@ function Dashboard() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          {/* On mobile show open icon, on desktop show delete */}
-                          <a
-                            href={`/share/${item.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-white/20 hover:text-white/60 transition-colors lg:hidden"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                          </a>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (confirm("Delete this extraction?")) deleteExtraction(item.id);
-                            }}
-                            className="text-white/20 hover:text-red-400 transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm("Delete this extraction?")) deleteExtraction(item.id);
+                          }}
+                          className="text-white/20 hover:text-red-400 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
                       </td>
                     </tr>
                   ))}
