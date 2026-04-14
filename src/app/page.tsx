@@ -30,6 +30,7 @@ interface BrandData {
   logoVariants?: { type: string; theme: string; src: string }[];
   favicon: string;
   brand?: { name: string; candidates: { name: string; count: number }[] };
+  shareId?: string | null;
   brandDiff?: {
     noChanges?: boolean;
     extractedAt?: string;
@@ -184,6 +185,38 @@ function ColorRow({ color }: { color: string }) {
         <span>{cmyk}</span>
       </CopyCell>
     </tr>
+  );
+}
+
+function ShareButton({ shareId }: { shareId: string }) {
+  const [copied, setCopied] = useState(false);
+  function copy() {
+    const link = `${window.location.origin}/share/${shareId}`;
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <button
+      onClick={copy}
+      className="flex items-center gap-1.5 px-3 sm:px-4 py-2 text-sm rounded-full border border-black/15 dark:border-white/15 text-black dark:text-white font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition-colors shrink-0"
+    >
+      {copied ? (
+        <>
+          <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          <span className="hidden sm:inline text-green-600 dark:text-green-400">Copied!</span>
+        </>
+      ) : (
+        <>
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          </svg>
+          <span className="hidden sm:inline">Share</span>
+        </>
+      )}
+    </button>
   );
 }
 
@@ -381,22 +414,28 @@ export default function Home() {
           </button>
 
           {data && (
-            <form onSubmit={handleExtract} className="flex items-center gap-2 min-w-0">
-              <input
-                type="text"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="Enter URL..."
-                className="min-w-0 w-full sm:w-72 px-3 sm:px-4 py-2 text-sm rounded-full bg-white dark:bg-white/5 border border-black/15 dark:border-white/15 text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 focus:outline-none focus:border-black dark:focus:border-white transition-colors"
-              />
-              <button
-                type="submit"
-                disabled={loading || !url.trim()}
-                className="px-4 sm:px-5 py-2 text-sm rounded-full bg-[#eb742e] text-white font-semibold hover:scale-105 disabled:opacity-40 disabled:hover:scale-100 transition-transform shrink-0"
-              >
-                {loading ? "..." : "Extract"}
-              </button>
-            </form>
+            <div className="flex items-center gap-2 min-w-0">
+              {/* Share button */}
+              {data.shareId && (
+                <ShareButton shareId={data.shareId} />
+              )}
+              <form onSubmit={handleExtract} className="flex items-center gap-2 min-w-0">
+                <input
+                  type="text"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="Enter URL..."
+                  className="min-w-0 w-full sm:w-72 px-3 sm:px-4 py-2 text-sm rounded-full bg-white dark:bg-white/5 border border-black/15 dark:border-white/15 text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 focus:outline-none focus:border-black dark:focus:border-white transition-colors"
+                />
+                <button
+                  type="submit"
+                  disabled={loading || !url.trim()}
+                  className="px-4 sm:px-5 py-2 text-sm rounded-full bg-[#eb742e] text-white font-semibold hover:scale-105 disabled:opacity-40 disabled:hover:scale-100 transition-transform shrink-0"
+                >
+                  {loading ? "..." : "Extract"}
+                </button>
+              </form>
+            </div>
           )}
         </div>
       </header>

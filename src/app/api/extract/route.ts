@@ -972,27 +972,32 @@ export async function POST(req: NextRequest) {
       console.error("Diff fetch error:", diffErr);
     }
 
-    // Save to Supabase (non-blocking — don't fail the response if DB write fails)
-    supabase
-      .from("brand_extractions")
-      .insert({
-        url,
-        title: brandData.title,
-        description: brandData.description,
-        brand_name: brandName,
-        palette: responseData.palette,
-        typography: responseData.typography,
-        logos: finalLogos.slice(0, 6),
-        logo_count: Math.min(logoCount, 6),
-        favicon: faviconDataUri || brandData.favicon,
-        screenshot: `data:image/png;base64,${screenshot}`,
-      })
-      .then(({ error }) => {
-        if (error) console.error("Supabase insert error:", error.message);
-        else console.log("Saved extraction to Supabase for:", url);
-      });
+    // Save to Supabase and capture the row ID for the share link
+    let shareId: string | null = null;
+    try {
+      const { data: inserted, error: insertError } = await supabase
+        .from("brand_extractions")
+        .insert({
+          url,
+          title: brandData.title,
+          description: brandData.description,
+          brand_name: brandName,
+          palette: responseData.palette,
+          typography: responseData.typography,
+          logos: finalLogos.slice(0, 6),
+          logo_count: Math.min(logoCount, 6),
+          favicon: faviconDataUri || brandData.favicon,
+          screenshot: `data:image/png;base64,${screenshot}`,
+        })
+        .select("id")
+        .single();
+      if (insertError) console.error("Supabase insert error:", insertError.message);
+      else shareId = inserted?.id ?? null;
+    } catch (e) {
+      console.error("Supabase insert failed:", e);
+    }
 
-    return NextResponse.json({ ...responseData, brandDiff });
+    return NextResponse.json({ ...responseData, brandDiff, shareId });
   } catch (err) {
     if (browser) await browser.close();
     
