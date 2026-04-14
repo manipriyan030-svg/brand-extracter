@@ -897,6 +897,81 @@ export async function POST(req: NextRequest) {
       },
     };
 
+    // Fetch previous extraction for this URL (to compute diff)
+    let brandDiff: Record<string, unknown> | null = null;
+    try {
+      const { data: prevRows } = await supabase
+        .from("brand_extractions")
+        .select("palette, typography, logos, logo_count, extracted_at")
+        .eq("url", url)
+        .order("extracted_at", { ascending: false })
+        .limit(1);
+
+      if (prevRows && prevRows.length > 0) {
+        const prev = prevRows[0];
+        const diff: {
+          colors?: { added: string[]; removed: string[] };
+          fonts?: { added: string[]; removed: string[] };
+          logos?: { previousLogos: string[]; newLogos: string[] };
+          extractedAt?: string;
+          noChanges?: boolean;
+        } = { extractedAt: prev.extracted_at };
+
+        // Color diff
+        const prevColors: string[] = [
+          ...(prev.palette?.primary || []),
+          ...(prev.palette?.all || []),
+        ].filter((c: string, i: number, a: string[]) => a.indexOf(c) === i);
+        const newColors = [
+          ...responseData.palette.primary,
+          ...responseData.palette.all,
+        ].filter((c, i, a) => a.indexOf(c) === i);
+        const addedColors = newColors.filter((c) => !prevColors.includes(c));
+        const removedColors = prevColors.filter((c) => !newColors.includes(c));
+        if (addedColors.length > 0 || removedColors.length > 0) {
+          diff.colors = { added: addedColors, removed: removedColors };
+        }
+
+        // Font diff
+        const prevFonts: string[] = prev.typography?.fonts || [];
+        const newFonts: string[] = responseData.typography.fonts;
+        const addedFonts = newFonts.filter((f) => !prevFonts.includes(f));
+        const removedFonts = prevFonts.filter((f) => !newFonts.includes(f));
+        if (addedFonts.length > 0 || removedFonts.length > 0) {
+          diff.fonts = { added: addedFonts, removed: removedFonts };
+        }
+
+        // Logo diff — compare actual image data URIs, not just count.
+        // Logos are large base64 strings; compare the first ~300 chars as a
+        // fast fingerprint (the header + initial pixel data is unique enough).
+        const prevLogos: string[] = (prev.logos || []).slice(0, prev.logo_count ?? 6);
+        const newLogosForDiff = finalLogos.slice(0, logoCount); // actual logos, no favicon
+        const fingerprint = (src: string) => src.slice(0, 300);
+        const prevPrints = new Set(prevLogos.map(fingerprint));
+        const newPrints = new Set(newLogosForDiff.map(fingerprint));
+        const logosChanged =
+          prevLogos.length !== newLogosForDiff.length ||
+          newLogosForDiff.some((l) => !prevPrints.has(fingerprint(l))) ||
+          prevLogos.some((l) => !newPrints.has(fingerprint(l)));
+
+        if (logosChanged) {
+          diff.logos = {
+            previousLogos: prevLogos,
+            newLogos: newLogosForDiff,
+          };
+        }
+
+        // Only include diff if something actually changed
+        if (diff.colors || diff.fonts || diff.logos) {
+          brandDiff = diff;
+        } else {
+          brandDiff = { noChanges: true, extractedAt: prev.extracted_at };
+        }
+      }
+    } catch (diffErr) {
+      console.error("Diff fetch error:", diffErr);
+    }
+
     // Save to Supabase (non-blocking — don't fail the response if DB write fails)
     supabase
       .from("brand_extractions")
@@ -917,7 +992,7 @@ export async function POST(req: NextRequest) {
         else console.log("Saved extraction to Supabase for:", url);
       });
 
-    return NextResponse.json(responseData);
+    return NextResponse.json({ ...responseData, brandDiff });
   } catch (err) {
     if (browser) await browser.close();
     

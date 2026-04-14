@@ -30,6 +30,13 @@ interface BrandData {
   logoVariants?: { type: string; theme: string; src: string }[];
   favicon: string;
   brand?: { name: string; candidates: { name: string; count: number }[] };
+  brandDiff?: {
+    noChanges?: boolean;
+    extractedAt?: string;
+    colors?: { added: string[]; removed: string[] };
+    fonts?: { added: string[]; removed: string[] };
+    logos?: { previousLogos: string[]; newLogos: string[] };
+  } | null;
 }
 
 // === COLOR HELPERS ===
@@ -576,6 +583,134 @@ export default function Home() {
                 <div className="mb-6 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-2xl px-5 py-3 text-sm">
                   {error}
                 </div>
+              )}
+
+              {/* === BRAND CHANGE DIFF === */}
+              {data.brandDiff && (
+                <section className="result-section mb-10">
+                  {data.brandDiff.noChanges ? (
+                    <div className="flex items-center gap-3 rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.02] px-5 py-4">
+                      <div className="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0" />
+                      <p className="text-sm text-black/70 dark:text-white/70">
+                        <span className="font-semibold text-black dark:text-white">No changes detected</span>
+                        {data.brandDiff.extractedAt && (
+                          <> since last extraction on{" "}
+                            <span className="font-mono">{new Date(data.brandDiff.extractedAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</span>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.02] overflow-hidden">
+                      <div className="px-5 py-4 border-b border-black/[0.06] dark:border-white/[0.06] flex items-center gap-3">
+                        <div className="w-2.5 h-2.5 rounded-full bg-orange-500 flex-shrink-0 animate-pulse" />
+                        <div>
+                          <p className="font-bold text-black dark:text-white text-sm">Brand changes detected</p>
+                          {data.brandDiff.extractedAt && (
+                            <p className="text-xs text-black/50 dark:text-white/50 mt-0.5">
+                              Compared with extraction from{" "}
+                              {new Date(data.brandDiff.extractedAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="divide-y divide-black/[0.06] dark:divide-white/[0.06]">
+                        {/* Color diff */}
+                        {data.brandDiff.colors && (
+                          <div className="px-5 py-4">
+                            <p className="text-xs font-bold uppercase tracking-[0.12em] text-black/40 dark:text-white/40 mb-3">Colors</p>
+                            <div className="flex flex-wrap gap-3">
+                              {data.brandDiff.colors.added.map((c) => (
+                                <div key={`add-${c}`} className="flex items-center gap-2">
+                                  <div className="w-5 h-5 rounded border border-black/10 dark:border-white/10 flex-shrink-0" style={{ backgroundColor: c }} />
+                                  <span className="font-mono text-xs text-black dark:text-white">{c.toUpperCase()}</span>
+                                  <span className="text-[10px] font-bold uppercase tracking-wide text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 rounded-full px-2 py-0.5">New</span>
+                                </div>
+                              ))}
+                              {data.brandDiff.colors.removed.map((c) => (
+                                <div key={`rem-${c}`} className="flex items-center gap-2 opacity-60">
+                                  <div className="w-5 h-5 rounded border border-black/10 dark:border-white/10 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: c }}>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <div className="w-full h-px bg-red-500 rotate-45" />
+                                    </div>
+                                  </div>
+                                  <span className="font-mono text-xs text-black/60 dark:text-white/60 line-through">{c.toUpperCase()}</span>
+                                  <span className="text-[10px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-full px-2 py-0.5">Removed</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {/* Font diff */}
+                        {data.brandDiff.fonts && (
+                          <div className="px-5 py-4">
+                            <p className="text-xs font-bold uppercase tracking-[0.12em] text-black/40 dark:text-white/40 mb-3">Typography</p>
+                            <div className="flex flex-wrap gap-3">
+                              {data.brandDiff.fonts.added.map((f) => (
+                                <div key={`fadd-${f}`} className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold text-black dark:text-white" style={{ fontFamily: `"${f}", sans-serif` }}>{f}</span>
+                                  <span className="text-[10px] font-bold uppercase tracking-wide text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 rounded-full px-2 py-0.5">New</span>
+                                </div>
+                              ))}
+                              {data.brandDiff.fonts.removed.map((f) => (
+                                <div key={`frem-${f}`} className="flex items-center gap-2 opacity-60">
+                                  <span className="text-sm text-black/50 dark:text-white/50 line-through" style={{ fontFamily: `"${f}", sans-serif` }}>{f}</span>
+                                  <span className="text-[10px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-full px-2 py-0.5">Removed</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {/* Logo visual diff — before / after */}
+                        {data.brandDiff.logos && (
+                          <div className="px-5 py-4">
+                            <p className="text-xs font-bold uppercase tracking-[0.12em] text-black/40 dark:text-white/40 mb-4">Logos</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              {/* Previous logos */}
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-red-500 mb-2">Before</p>
+                                <div className="flex flex-wrap gap-3">
+                                  {data.brandDiff.logos.previousLogos.length > 0 ? data.brandDiff.logos.previousLogos.map((src, i) => (
+                                    <div key={i} className="relative rounded-xl border-2 border-red-300 dark:border-red-700 bg-white overflow-hidden">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={src}
+                                        alt={`Previous logo ${i + 1}`}
+                                        className="w-24 h-16 object-contain p-2"
+                                        onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
+                                      />
+                                      <div className="absolute bottom-0 left-0 right-0 bg-red-500/10 text-red-600 dark:text-red-400 text-[9px] font-bold text-center py-0.5">OLD</div>
+                                    </div>
+                                  )) : (
+                                    <p className="text-xs text-black/40 dark:text-white/40 italic">No previous logos</p>
+                                  )}
+                                </div>
+                              </div>
+                              {/* New logos */}
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-green-500 mb-2">After</p>
+                                <div className="flex flex-wrap gap-3">
+                                  {data.brandDiff.logos.newLogos.map((src, i) => (
+                                    <div key={i} className="relative rounded-xl border-2 border-green-300 dark:border-green-700 bg-white overflow-hidden">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={src}
+                                        alt={`New logo ${i + 1}`}
+                                        className="w-24 h-16 object-contain p-2"
+                                        onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
+                                      />
+                                      <div className="absolute bottom-0 left-0 right-0 bg-green-500/10 text-green-600 dark:text-green-400 text-[9px] font-bold text-center py-0.5">NEW</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </section>
               )}
 
               {/* === LOGOS === */}
