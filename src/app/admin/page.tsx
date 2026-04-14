@@ -39,38 +39,99 @@ interface Extraction {
   extracted_at: string;
 }
 
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+
 function LoginForm({ onLogin }: { onLogin: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const [countdown, setCountdown] = useState(0);
+
+  // Restore lockout from sessionStorage on mount
+  useEffect(() => {
+    const stored = sessionStorage.getItem("admin_locked_until");
+    if (stored) {
+      const until = parseInt(stored);
+      if (Date.now() < until) setLockedUntil(until);
+      else sessionStorage.removeItem("admin_locked_until");
+    }
+    const storedAttempts = sessionStorage.getItem("admin_attempts");
+    if (storedAttempts) setAttempts(parseInt(storedAttempts));
+  }, []);
+
+  // Countdown timer when locked out
+  useEffect(() => {
+    if (!lockedUntil) return;
+    const tick = () => {
+      const remaining = Math.ceil((lockedUntil - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setLockedUntil(null);
+        setAttempts(0);
+        setCountdown(0);
+        sessionStorage.removeItem("admin_locked_until");
+        sessionStorage.removeItem("admin_attempts");
+      } else {
+        setCountdown(remaining);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lockedUntil]);
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    if (lockedUntil && Date.now() < lockedUntil) return;
+
     setError("");
     setLoading(true);
 
-    if (email !== ALLOWED_EMAIL) {
-      setError("Access denied. Only authorized accounts can sign in.");
+    // Generic message — don't reveal whether email or password is wrong
+    const deny = () => {
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
+      sessionStorage.setItem("admin_attempts", String(newAttempts));
+      if (newAttempts >= MAX_ATTEMPTS) {
+        const until = Date.now() + LOCKOUT_MS;
+        setLockedUntil(until);
+        sessionStorage.setItem("admin_locked_until", String(until));
+        setError("Too many failed attempts. Try again in 15 minutes.");
+      } else {
+        setError(`Invalid credentials. ${MAX_ATTEMPTS - newAttempts} attempt${MAX_ATTEMPTS - newAttempts === 1 ? "" : "s"} remaining.`);
+      }
       setLoading(false);
-      return;
-    }
+    };
+
+    // Enforce allowed email server-side too — but don't reveal which field is wrong
+    if (email !== ALLOWED_EMAIL) { deny(); return; }
 
     const client = getSupabase();
     if (!client) {
-      setError("Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your environment.");
+      setError("Authentication service unavailable. Contact the administrator.");
       setLoading(false);
       return;
     }
 
     const { error } = await client.auth.signInWithPassword({ email, password });
     if (error) {
-      setError(error.message);
+      deny();
     } else {
+      // Reset lockout on success
+      setAttempts(0);
+      sessionStorage.removeItem("admin_attempts");
+      sessionStorage.removeItem("admin_locked_until");
       onLogin();
     }
     setLoading(false);
   }
+
+  const isLocked = !!lockedUntil && Date.now() < lockedUntil;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] px-4">
@@ -83,7 +144,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
             className="h-10 w-auto mb-4 mx-auto"
           />
           <h1 className="text-xl font-bold text-white tracking-tight">Admin Panel</h1>
-          <p className="text-sm text-white/40 mt-1">freshboost. brand extractor</p>
+          <p className="text-sm text-white/40 mt-1">Restricted access only</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -95,33 +156,65 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter email"
               required
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 text-sm focus:outline-none focus:border-white/30 transition-colors"
+              autoComplete="username"
+              disabled={isLocked}
+              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 text-sm focus:outline-none focus:border-white/30 transition-colors disabled:opacity-40"
             />
           </div>
           <div>
             <label className="block text-xs font-semibold text-white/50 uppercase tracking-wider mb-1.5">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
-              required
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 text-sm focus:outline-none focus:border-white/30 transition-colors"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
+                required
+                autoComplete="current-password"
+                disabled={isLocked}
+                className="w-full px-4 py-3 pr-11 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 text-sm focus:outline-none focus:border-white/30 transition-colors disabled:opacity-40"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                )}
+              </button>
+            </div>
           </div>
 
-          {error && (
-            <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5">{error}</p>
+          {isLocked && (
+            <div className="flex items-center gap-2 text-yellow-400 text-sm bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-4 py-2.5">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+              <span>Locked. Try again in {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, "0")}</span>
+            </div>
+          )}
+
+          {!isLocked && error && (
+            <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              <span>{error}</span>
+            </div>
           )}
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full py-3 rounded-xl bg-[#eb742e] text-white font-bold text-sm hover:bg-[#d4651f] disabled:opacity-50 transition-colors"
+            disabled={loading || isLocked}
+            className="w-full py-3 rounded-xl bg-[#eb742e] text-white font-bold text-sm hover:bg-[#d4651f] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
+
+        <p className="mt-6 text-center text-[11px] text-white/20">
+          Unauthorized access attempts are logged.
+        </p>
       </div>
     </div>
   );
@@ -260,12 +353,58 @@ function DetailView({ item, onBack }: { item: Extraction; onBack: () => void }) 
   );
 }
 
+const INACTIVITY_MS = 5 * 60 * 1000; // 5 minutes
+const WARN_BEFORE_MS = 30 * 1000;    // warn 30 seconds before logout
+
 function Dashboard() {
   const [extractions, setExtractions] = useState<Extraction[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Extraction | null>(null);
   const [mobileDetail, setMobileDetail] = useState<Extraction | null>(null);
   const [search, setSearch] = useState("");
+  const [warnLogout, setWarnLogout] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
+  // Inactivity auto-logout
+  useEffect(() => {
+    let logoutTimer: ReturnType<typeof setTimeout>;
+    let warnTimer: ReturnType<typeof setTimeout>;
+    let countdownInterval: ReturnType<typeof setInterval>;
+
+    function resetTimers() {
+      clearTimeout(logoutTimer);
+      clearTimeout(warnTimer);
+      clearInterval(countdownInterval);
+      setWarnLogout(false);
+      setCountdown(0);
+
+      warnTimer = setTimeout(() => {
+        setWarnLogout(true);
+        let secs = Math.ceil(WARN_BEFORE_MS / 1000);
+        setCountdown(secs);
+        countdownInterval = setInterval(() => {
+          secs -= 1;
+          setCountdown(secs);
+        }, 1000);
+      }, INACTIVITY_MS - WARN_BEFORE_MS);
+
+      logoutTimer = setTimeout(async () => {
+        clearInterval(countdownInterval);
+        await getSupabase()?.auth.signOut();
+      }, INACTIVITY_MS);
+    }
+
+    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];
+    events.forEach((e) => window.addEventListener(e, resetTimers, { passive: true }));
+    resetTimers();
+
+    return () => {
+      clearTimeout(logoutTimer);
+      clearTimeout(warnTimer);
+      clearInterval(countdownInterval);
+      events.forEach((e) => window.removeEventListener(e, resetTimers));
+    };
+  }, []);
 
   useEffect(() => {
     fetchExtractions();
@@ -311,6 +450,16 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
+      {/* Inactivity warning banner */}
+      {warnLogout && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 bg-yellow-500 text-black font-semibold text-sm px-5 py-3 rounded-2xl shadow-xl">
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+          Auto-logout in {countdown}s due to inactivity
+        </div>
+      )}
+
       {/* Mobile full-screen detail view */}
       {mobileDetail && (
         <DetailView item={mobileDetail} onBack={() => setMobileDetail(null)} />
@@ -565,12 +714,25 @@ export default function AdminPage() {
   useEffect(() => {
     const client = getSupabase();
     if (!client) { setChecking(false); return; }
+
+    // Check existing session
     client.auth.getSession().then(({ data }) => {
-      if (data.session?.user?.email === ALLOWED_EMAIL) {
-        setAuthed(true);
-      }
+      const email = data.session?.user?.email;
+      const exp = data.session?.expires_at;
+      const valid = email === ALLOWED_EMAIL && (!exp || Date.now() / 1000 < exp);
+      setAuthed(valid);
       setChecking(false);
     });
+
+    // Listen for auth changes — auto-logout if session expires or user signs out elsewhere
+    const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
+      const email = session?.user?.email;
+      const exp = session?.expires_at;
+      const valid = !!session && email === ALLOWED_EMAIL && (!exp || Date.now() / 1000 < exp);
+      setAuthed(valid);
+    });
+
+    return () => listener.subscription.unsubscribe();
   }, []);
 
   if (checking) {
