@@ -201,22 +201,38 @@ export default function SharePage() {
           </a>
           <div className="flex items-center gap-2">
             <span className="text-xs text-black/40 dark:text-white/40 hidden sm:block">
-              Shared brand report · {new Date(data.extracted_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+              Shared · {new Date(data.extracted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
             </span>
+            {/* Copy link — icon only on mobile, icon+text on desktop */}
             <button
               onClick={copyLink}
-              className="flex items-center gap-2 px-4 py-2 rounded-full border border-black/15 dark:border-white/15 text-sm font-semibold text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-black/15 dark:border-white/15 text-sm font-semibold text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
-              {copied ? "Copied!" : "Copy link"}
+              {copied ? (
+                <>
+                  <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="hidden sm:inline text-green-600 dark:text-green-400">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                  <span className="hidden sm:inline">Copy link</span>
+                </>
+              )}
             </button>
+            {/* Extract CTA — short on mobile */}
             <a
               href="/"
-              className="px-4 py-2 rounded-full bg-[#eb742e] text-white font-semibold text-sm hover:scale-105 transition-transform"
+              className="flex items-center gap-1.5 px-3 sm:px-5 py-2 rounded-full bg-[#eb742e] text-white font-semibold text-sm hover:scale-105 transition-transform shrink-0"
             >
-              Extract brand →
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="hidden sm:inline">Extract brand</span>
             </a>
           </div>
         </div>
