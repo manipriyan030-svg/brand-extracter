@@ -56,7 +56,14 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
       return;
     }
 
-    const { error } = await getSupabase()!.auth.signInWithPassword({ email, password });
+    const client = getSupabase();
+    if (!client) {
+      setError("Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your environment.");
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await client.auth.signInWithPassword({ email, password });
     if (error) {
       setError(error.message);
     } else {
@@ -73,7 +80,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
           <img
             src="https://cdn.prod.website-files.com/637a83b536c04ad1891311c6/66866eee08b9e45d38e08dc5_Freshboost%20Purple.png"
             alt="Freshboost"
-            className="h-10 w-auto mb-4"
+            className="h-10 w-auto mb-4 mx-auto"
           />
           <h1 className="text-xl font-bold text-white tracking-tight">Admin Panel</h1>
           <p className="text-sm text-white/40 mt-1">freshboost. brand extractor</p>
